@@ -1,0 +1,54 @@
+AI Can't Debug This: A Virtual Thread Migration Workshop
+=======================================================
+
+Abstract
+--------
+AI can migrate your thread pools to virtual threads in minutes. It will even get the tests to pass. But when your service starts leaking request context across calls at 3 AM, AI is not on call. You are.
+
+In this hands-on workshop, we take MigrateCart, a realistic Java checkout service, and move it from fixed thread pools to virtual threads and structured concurrency through four progressive exercises. The service fans out across pricing, inventory, and shipping paths, while carrying request metadata through the flow.
+
+Every exercise breaks something on purpose first. You will watch fixed pools create wave behavior under load, see unstructured futures leave orphaned work behind, expose ThreadLocal-style context lifetime bugs, and diagnose a synchronized hot path that serializes virtual-thread work. You will understand the failure before writing the fix.
+
+Each exercise starts with failing tests that pass when the migration is correct: replacing fixed-pool executors, rewriting fan-out with StructuredTaskScope, migrating request context to ScopedValue, and diagnosing pinned or serialized virtual-thread work with JFR plus throughput evidence. By the end, you will not just have migrated a service. You will have the mental model to explain what went wrong when production behavior does not match the happy-path migration guide.
+
+Intended Audience
+-----------------
+Intermediate to senior Java developers who are comfortable with executors, futures, request context, and production debugging.
+
+Workshop Format
+---------------
+- Duration: 2 hours
+- Language: English
+- Build: Maven
+- Runtime baseline for this repository: Java 25
+
+Outline
+-------
+0:00-0:08 Opening and setup check
+- Introduce MigrateCart and the four failure modes.
+- Run `make doctor`.
+
+0:08-0:30 Exercise 1: Kill the Thread Pool
+- Replace fixed-pool execution with virtual-thread-per-task execution.
+- Tests: `VirtualThreadExecutorTest`, `ScaleBeyondPoolTest`.
+- Debrief: when pooling still makes sense and where explicit backpressure belongs.
+
+0:30-1:00 Exercise 2: Structured Fan-Out
+- Replace unstructured `CompletableFuture` fan-out with `StructuredTaskScope`.
+- Tests: `FailureCancellationTest`, `NoOrphanedTasksTest`.
+- Debrief: cancellation and child-task lifetime are correctness concerns.
+
+1:00-1:30 Exercise 3: Context Migration
+- Replace thread-bound request context with scoped request context.
+- Tests: `ContextPropagationTest`, `ChildTaskContextTest`.
+- Debrief: request lifetime is not thread lifetime, and legacy bridges need boundaries.
+
+1:30-1:52 Exercise 4: Diagnosing Pinned Carriers
+- Observe a synchronized hot path under virtual-thread load.
+- Use JFR recording plus throughput tests to inspect behavior.
+- Test: `PinningDetectionTest`.
+- Debrief: runtime evidence matters more than migration slogans.
+
+1:52-2:00 Wrap-up
+- Review the migration checklist.
+- Discuss participant production concerns and common rollout mistakes.

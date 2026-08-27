@@ -1,0 +1,44 @@
+Virtual Thread Migration Checklist
+==================================
+
+Before enabling virtual threads in production, verify these points.
+
+1. Executor Replacement
+-----------------------
+- Replace fixed pools used only to cap thread count with virtual-thread-per-task execution.
+- Keep explicit bounds around scarce dependencies such as databases, queues, and remote services.
+- Confirm load does not simply move the bottleneck somewhere less visible.
+- Put an explicit semaphore in front of every scarce dependency, sized to that dependency's real capacity.
+
+2. Fan-Out Semantics
+--------------------
+- Identify request paths that fork multiple child operations.
+- Ensure child operations have one bounded lifetime.
+- Confirm sibling tasks are cancelled when one branch fails.
+- Avoid orphaned work after the parent request has completed or failed.
+
+3. Request Context
+------------------
+- Audit ThreadLocal usage for security, tenant, trace, and request metadata.
+- Bind request context to the logical operation, not to a reused thread.
+- Verify child tasks see the expected context.
+- Keep legacy ThreadLocal bridges narrow and documented.
+- Audit ThreadLocal caches separately from ThreadLocal context; a cache that assumed thread reuse becomes a per-task allocation. Use `ca.bazlur.migratecart.observability.CountingThreadLocal` in place of `ThreadLocal.withInitial(...)` at each cache site to make the initialization count visible.
+
+4. Pinning And Serialization
+----------------------------
+- Look for blocking calls inside synchronized methods or synchronized blocks.
+- Record JFR under load and inspect virtual-thread events.
+- Pair runtime evidence with behavioral throughput tests.
+- Refactor hot paths where a monitor serializes work or pins carriers on older JDKs.
+
+5. Framework Version Floor
+--------------------------
+- Confirm the Java version, Spring/framework version, JDBC driver, HTTP client, and observability agents are virtual-thread-ready.
+- Confirm preview-feature flags are configured where the chosen Java version requires them.
+
+6. Production Observability
+---------------------------
+- Add JFR capture instructions or automation for incident response.
+- Track request latency, downstream saturation, and executor behavior before and after the migration.
+- Keep rollback and feature-flag options ready for the first production rollout.

@@ -1,0 +1,103 @@
+Workshop Diagrams
+=================
+
+Use these as slide sketches, whiteboard references, or speaker notes.
+
+Exercise 1: Fixed-Pool Waves
+----------------------------
+
+Before:
+
+  requests
+    |
+    v
+  fixed pool, size 4
+  +------+------+------+------+
+  | task | task | task | task |
+  +------+------+------+------+
+       queued queued queued queued queued queued queued queued
+
+  12 blocking tasks at 250 ms run in roughly 3 waves.
+
+After:
+
+  requests
+    |
+    v
+  virtual-thread-per-task executor
+  +------+------+------+------+------+------+------+------+------+------+------+------+
+  | vt   | vt   | vt   | vt   | vt   | vt   | vt   | vt   | vt   | vt   | vt   | vt   |
+  +------+------+------+------+------+------+------+------+------+------+------+------+
+
+  Thread count stops being the accidental bottleneck.
+  Backpressure still belongs around scarce dependencies.
+
+Exercise 2: Orphaned Future
+---------------------------
+
+Before:
+
+  loadCart()
+    |-- price future -------- ok
+    |-- inventory future ---- fails
+    |-- shipping future ----- keeps sleeping after parent failed
+
+  Parent request is finished, but sibling work is still consuming capacity.
+
+After:
+
+  StructuredTaskScope
+    |-- price task
+    |-- inventory task ---- fails
+    |-- shipping task ----- interrupted by scope shutdown
+
+  Child tasks share one visible lifetime.
+
+Exercise 3: ThreadLocal Context
+-------------------------------
+
+Before:
+
+  request A binds ThreadLocal(user=A)
+    |
+    +-- child virtual thread sees <missing>
+    |
+  caller thread still has user=A after request finishes
+
+  Context lifetime is tied to a thread, not to the request.
+
+After:
+
+  ScopedValue.where(context=A)
+    |
+    +-- structured child task sees user=A
+    |
+  binding exits when request scope exits
+
+  Context lifetime follows the logical operation.
+
+Exercise 4: Carrier Pinning
+---------------------------
+
+Before:
+
+  virtual thread
+    |
+    v
+  synchronized refreshAndRead()
+    |
+    +-- blocks while holding monitor
+    |
+  other virtual threads wait behind the same monitor
+
+  Work serializes and may pin carriers on runtimes where blocking under a monitor keeps the virtual thread mounted.
+
+After:
+
+  refreshAndRead()
+    |
+    +-- quick locked read
+    +-- blocking IO outside lock
+    +-- quick locked write
+
+  The hot path no longer holds the monitor while blocking.
