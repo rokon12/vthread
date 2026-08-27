@@ -54,6 +54,21 @@ make exercise4
 make exercise5
 ```
 
+Run every application scenario and observe the current behavior:
+
+```bash
+make run
+```
+
+Run the scenario for one exercise before and after your change:
+
+```bash
+make run ARGS=exercise3
+```
+
+The runner reports behavior rather than asserting it, so it works in both the broken
+starter and your migrated implementation.
+
 Commit after each completed exercise. Earlier fixes remain in place while you move to
 the next exercise.
 

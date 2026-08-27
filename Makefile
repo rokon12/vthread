@@ -1,7 +1,11 @@
-.PHONY: test doctor pinning-jfr exercise1 exercise2 exercise3 exercise4 exercise5
+.PHONY: test run doctor pinning-jfr exercise1 exercise2 exercise3 exercise4 exercise5
 
 test:
 	mvn test
+
+run:
+	mvn -q -DskipTests package
+	java --enable-preview -jar target/vithread-workshop-1.0-SNAPSHOT.jar $(ARGS)
 
 doctor:
 	./scripts/doctor.sh
