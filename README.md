@@ -1,117 +1,211 @@
 # MigrateCart Virtual Threads Workshop
 
-This is the participant repository for a hands-on Java virtual-thread migration.
-It intentionally starts with broken implementations and failing tests. The failures are
-the starting line for the workshop.
+This is the participant repository for a hands-on migration of a blocking Spring Boot
+service to virtual threads, structured concurrency, and scoped request context.
 
-The repository does not contain solution branches, solution tags, or completed
-implementations. Make your changes on your own branch as you progress through the
-exercises.
+> [!IMPORTANT]
+> The starter is deliberately broken. A successful setup reports **18 tests run and 10
+> failures**. Those failures are the starting line for the workshop.
+
+The happy-path HTTP endpoint already works. The tests expose problems that only become
+visible under concurrency, failure, cancellation, context propagation, serialization,
+and downstream saturation.
 
 ## Requirements
 
 - Java 25
 - Maven 3.9+
 - Git
+- `curl` or another HTTP client
 
-Preview features are already enabled by the Maven build.
+Preview features are configured by the Maven build. Use Java 25 for the coding
+exercises—the structured concurrency preview API differs from the JDK 21 API.
 
-## Before The Workshop
+## Setup
 
-Check your local environment and download the Maven dependencies:
+Clone the repository, verify the toolchain, and create a branch for your work:
 
 ```bash
+git clone https://github.com/rokon12/vithread-workshop-participant.git
+cd vithread-workshop-participant
 make doctor
-mvn test
-```
-
-`make doctor` should pass. `mvn test` should compile successfully and report 18 tests
-run with 10 exercise failures; those failures are expected in the starter repository.
-
-## Start Your Work
-
-Create a branch so your progress is easy to preserve:
-
-```bash
 git switch -c my-migration
 ```
 
-Then work through the exercises in order:
-
-1. [Kill The Thread Pool](exercises/01-kill-the-thread-pool.md)
-2. [Structured Fan-Out](exercises/02-structured-fan-out.md)
-3. [Context Migration](exercises/03-context-migration.md)
-4. [Diagnosing Pinned Carriers](exercises/04-diagnosing-pinned-carriers.md)
-5. [The Bottleneck Moves](exercises/05-the-bottleneck-moves.md) — optional/take-home
-
-Run only the exercise you are currently working on:
+Download the dependencies and confirm the expected baseline:
 
 ```bash
-make exercise1
-make exercise2
-make exercise3
-make exercise4
-make exercise5
+mvn test
 ```
 
-Start the Spring Boot application:
+Expected summary:
+
+```text
+Tests run: 18, Failures: 10, Errors: 0, Skipped: 0
+```
+
+`mvn test` exits with a failure status at this point. That is intentional.
+
+## Run The Spring Boot Application
+
+Start the service:
 
 ```bash
 make run
 ```
 
-Then load a cart from another terminal:
+The command stays attached to the server. Leave it running and use another terminal to
+load a cart:
 
 ```bash
-curl -H 'X-User-Id: user-7' -H 'X-Trace-Id: trace-123' \
+curl \
+  -H 'X-User-Id: user-7' \
+  -H 'X-Trace-Id: trace-123' \
   'http://localhost:8080/api/carts/sku-42?quantity=2'
 ```
 
-The endpoint uses the current `CartAggregationService` implementation to call pricing,
-inventory, and shipping and returns the resulting cart as JSON.
+Expected response:
 
-Build and run the executable Spring Boot JAR:
-
-```bash
-mvn -q -DskipTests package
-java --enable-preview -jar target/vithread-workshop-1.0-SNAPSHOT.jar
+```json
+{
+  "userId": "user-7",
+  "traceId": "trace-123",
+  "sku": "sku-42",
+  "quantity": 2,
+  "price": "$42.00",
+  "inventoryStatus": "in-stock",
+  "shippingEta": "tomorrow"
+}
 ```
 
-Commit after each completed exercise. Earlier fixes remain in place while you move to
-the next exercise.
+Stop the application with `Ctrl+C`.
 
-## Exercise Map
+The request path is:
 
-| Exercise | Main production area | Lesson |
-| --- | --- | --- |
-| 1 | `config/ExecutorConfig.java` | Replace a fixed pool with virtual-thread-per-task execution. |
-| 2 | `cart/CartAggregationService.java` | Give fan-out work a bounded lifetime with structured concurrency. |
-| 3 | `cart/CartFacade.java`, `context/` | Bind request data to an operation with `ScopedValue`. |
-| 4 | `diagnostics/HotPathInventoryCache.java` | Use runtime evidence and remove blocking from a serialized hot path. |
-| 5 | `reporting/`, `downstream/` | Audit per-thread caches and explicitly bound scarce dependencies. |
+```text
+GET /api/carts/{sku}
+          |
+          v
+    CartController
+          |
+          v
+CartAggregationService
+     /      |       \
+ pricing inventory shipping
+```
+
+## HTTP API
+
+### `GET /api/carts/{sku}`
+
+| Input | Location | Default | Description |
+| --- | --- | --- | --- |
+| `sku` | path | required | Product identifier. |
+| `quantity` | query | `1` | Positive cart quantity. |
+| `X-User-Id` | header | `workshop-user` | Request user copied into the response. |
+| `X-Trace-Id` | header | `trace-demo` | Trace identifier copied into the response. |
+
+A quantity below one returns HTTP 400.
+
+## Workshop Workflow
+
+For each exercise:
+
+1. Read the exercise sheet.
+2. Run only that exercise’s focused tests.
+3. Change the indicated production code.
+4. Rerun the focused tests until they pass.
+5. Commit your progress before moving on.
+
+Earlier exercises remain fixed as you progress. You do not need checkpoint branches or
+tags.
+
+| Exercise | Reading | Command | Initial failures | Goal |
+| --- | --- | --- | ---: | --- |
+| 1. Kill the Thread Pool | [`01-kill-the-thread-pool.md`](exercises/01-kill-the-thread-pool.md) | `make exercise1` | 2 | Replace the fixed application pool with virtual-thread-per-task execution. |
+| 2. Structured Fan-Out | [`02-structured-fan-out.md`](exercises/02-structured-fan-out.md) | `make exercise2` | 2 | Give pricing, inventory, and shipping one failure and cancellation boundary. |
+| 3. Context Migration | [`03-context-migration.md`](exercises/03-context-migration.md) | `make exercise3` | 2 | Bind request metadata to the logical operation instead of a thread. |
+| 4. Diagnosing Pinned Carriers | [`04-diagnosing-pinned-carriers.md`](exercises/04-diagnosing-pinned-carriers.md) | `make exercise4` | 1 | Use evidence and remove blocking from a serialized hot path. |
+| 5. The Bottleneck Moves | [`05-the-bottleneck-moves.md`](exercises/05-the-bottleneck-moves.md) | `make exercise5` | 3 | Audit per-thread caches and explicitly bound scarce dependencies. |
+
+Exercise 5 is optional/take-home and sits outside the two-hour core workshop.
+
+## Useful Commands
+
+| Command | Purpose |
+| --- | --- |
+| `make doctor` | Verify Java, Maven, and Git, then compile the project. |
+| `make run` | Start the Spring Boot service on port 8080. |
+| `make exercise1` … `make exercise5` | Run one exercise’s focused tests. |
+| `make test` | Run the full suite. It becomes green after all exercises are complete. |
+| `make pinning-jfr` | Record the current Exercise 4 behavior with JFR. |
 
 ## JFR Workflow
 
-Exercise 4 includes a fast behavioral test and an optional JFR recording:
+Exercise 4 includes both a fast behavioral test and an optional Java Flight Recorder
+capture:
 
 ```bash
 make exercise4
 make pinning-jfr
 ```
 
-The recording is written to `target/pinning.jfr`. If the JDK reports
-`jdk.VirtualThreadPinned` events, they are printed and written to
-`target/pinning-events.txt`. On Java 25, monitor-related carrier pinning may not appear;
-the timing evidence still demonstrates hot-path serialization.
+The helper writes:
 
-## Useful Files
+```text
+target/pinning.jfr
+target/pinning-events.txt
+```
 
-- `exercises/` — participant instructions
-- `src/main/java/` — code to migrate
-- `src/test/java/` — executable success criteria
-- `migration-checklist.txt` — production migration checklist
-- `scripts/doctor.sh` — local setup verification
-- `scripts/record-pinning.sh` — JFR recording helper
+On Java 25, `jdk.VirtualThreadPinned` events may be absent because monitor-related
+carrier pinning was removed by JEP 491. The broken implementation still serializes
+callers, so use the timing result and JFR output together.
 
-The tests are intentionally visible: they describe the required behavior. The completed
-production implementation is not included in this repository.
+## Build An Executable JAR
+
+The starter tests fail intentionally, so skip test execution when packaging before you
+have completed the exercises:
+
+```bash
+mvn -q -DskipTests package
+java --enable-preview -jar target/vithread-workshop-1.0-SNAPSHOT.jar
+```
+
+## Troubleshooting
+
+### Wrong Java version
+
+Run `make doctor`. This workshop requires Java 25.
+
+### Preview-feature compilation error
+
+Run Maven from the project root. The POM configures preview features for compilation,
+tests, Spring Boot, and the executable JAR command shown above.
+
+### Port 8080 is already in use
+
+Stop the other process or run the packaged JAR on a different port:
+
+```bash
+java --enable-preview -jar target/vithread-workshop-1.0-SNAPSHOT.jar --server.port=8081
+```
+
+### Maven is slow on the first run
+
+The first build downloads Spring Boot and test dependencies. Run `mvn test` before the
+workshop while you have a reliable network connection.
+
+## Repository Layout
+
+```text
+src/main/java/          Spring Boot application and production code to migrate
+src/test/java/          Exercise tests and concurrency test support
+exercises/              Step-by-step participant instructions
+scripts/doctor.sh       Toolchain verification
+scripts/record-pinning.sh
+migration-checklist.txt Production migration handout
+```
+
+The tests are intentionally visible because they define the required behavior. The
+completed production implementation and solution history are not included in this
+repository.
