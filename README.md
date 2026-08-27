@@ -4,7 +4,7 @@ This is the participant repository for a hands-on migration of a blocking Spring
 service to virtual threads, structured concurrency, and scoped request context.
 
 > [!IMPORTANT]
-> The starter is deliberately broken. A successful setup reports **18 tests run and 10
+> The starter is deliberately broken. A successful setup reports **20 tests run and 10
 > failures**. Those failures are the starting line for the workshop.
 
 The happy-path HTTP endpoint already works. The tests expose problems that only become
@@ -41,7 +41,7 @@ mvn test
 Expected summary:
 
 ```text
-Tests run: 18, Failures: 10, Errors: 0, Skipped: 0
+Tests run: 20, Failures: 10, Errors: 0, Skipped: 0
 ```
 
 `mvn test` exits with a failure status at this point. That is intentional.

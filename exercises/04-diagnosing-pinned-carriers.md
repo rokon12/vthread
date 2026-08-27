@@ -2,7 +2,10 @@
 
 ## What Is Broken
 
-The service now uses virtual threads, but a hot path still serializes work by blocking while synchronized. On runtimes affected by carrier pinning, this can also keep a virtual thread mounted while it blocks.
+The service now uses virtual threads, but a synchronized cache miss performs blocking
+inventory I/O while holding the cache monitor. One slow miss prevents unrelated SKUs
+from checking or populating the cache. On runtimes affected by carrier pinning, the
+blocked virtual thread can also remain mounted on its carrier.
 
 This exercise is about evidence. A migration is not done just because the code compiles.
 
@@ -29,17 +32,24 @@ Remove the hot-path blocking while the monitor is held.
 Start here:
 
 - `src/main/java/ca/bazlur/migratecart/diagnostics/HotPathInventoryCache.java`
-- `src/main/java/ca/bazlur/migratecart/diagnostics/PinningLoadService.java`
 
 The migrated code should:
 
-- avoid blocking inside a synchronized method or block;
-- keep the cache state protected;
+- check cached state while holding a short lock;
+- perform the blocking inventory load after releasing that lock;
+- reacquire the lock briefly to publish the loaded value;
+- return the value that won publication when concurrent misses race;
 - let concurrent virtual-thread work complete without monitor-bound serialization.
+
+Simply replacing `synchronized` with `ReentrantLock` is not sufficient. Holding any
+exclusive lock during the blocking call still serializes the workload, even if the new
+lock changes the carrier-pinning behavior.
 
 ## Success Criteria
 
 - The load test completes materially faster.
+- Repeated reads use the cached value.
+- Concurrent readers agree on the value stored in the cache.
 - `make exercise4` passes.
 - You can explain what runtime evidence you would collect in production.
 
