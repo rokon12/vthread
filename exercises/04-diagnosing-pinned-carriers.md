@@ -9,7 +9,31 @@ blocked virtual thread can also remain mounted on its carrier.
 
 This exercise is about evidence. A migration is not done just because the code compiles.
 
-## Run The Failure
+## Before You Start: See Pinning Change Across JDKs
+
+The complete workshop uses JDK 25, but monitor pinning was removed in JDK 24. Run the
+small isolated comparison before changing the cache:
+
+```bash
+make pinning-compare
+```
+
+The helper finds JDK 21 and JDK 25 automatically when possible. Otherwise provide their
+installation directories:
+
+```bash
+JDK21_HOME=/path/to/jdk-21 JDK25_HOME=/path/to/jdk-25 make pinning-compare
+```
+
+It compiles one Java 21 class and runs the identical bytecode on both runtimes. Each
+virtual thread uses a different monitor, so the JDK 21 slowdown and JFR events isolate
+carrier pinning rather than ordinary lock contention. JDK 25 should show no
+monitor-pinning event for that code and should complete much faster.
+
+That runtime improvement does not fix the cache below: its single, oversized critical
+section still serializes unrelated keys on JDK 25.
+
+## Run The Exercise Failure
 
 ```bash
 make exercise4

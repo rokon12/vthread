@@ -1,4 +1,5 @@
-.PHONY: test run doctor pinning-jfr exercise1 exercise2 exercise3 exercise4 exercise5
+.PHONY: test run doctor pinning-compare exercise4-demo pinning-jfr \
+	exercise1 exercise2 exercise3 exercise4 exercise5
 
 test:
 	mvn test
@@ -8,6 +9,11 @@ run:
 
 doctor:
 	./scripts/doctor.sh
+
+pinning-compare:
+	./scripts/compare-pinning.sh
+
+exercise4-demo: pinning-compare
 
 pinning-jfr:
 	./scripts/record-pinning.sh

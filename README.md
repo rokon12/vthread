@@ -14,6 +14,7 @@ and downstream saturation.
 ## Requirements
 
 - Java 25
+- Optional: Java 21 on the machine presenting the pre–Exercise 4 comparison
 - Maven 3.9+
 - Git
 - `curl` or another HTTP client
@@ -138,12 +139,29 @@ Exercise 5 is optional/take-home and sits outside the two-hour core workshop.
 | `make run` | Start the Spring Boot service on port 8080. |
 | `make exercise1` … `make exercise5` | Run one exercise’s focused tests. |
 | `make test` | Run the full suite. It becomes green after all exercises are complete. |
+| `make pinning-compare` | Run identical bytecode on JDK 21 and JDK 25 before Exercise 4. |
 | `make pinning-jfr` | Record the current Exercise 4 behavior with JFR. |
 
 ## JFR Workflow
 
-Exercise 4 includes both a fast behavioral test and an optional Java Flight Recorder
-capture:
+Immediately before Exercise 4, compare monitor pinning on JDK 21 and JDK 25:
+
+```bash
+make pinning-compare
+```
+
+The helper finds SDKMAN, macOS, and common Linux JDK installations automatically. If
+needed, provide the installation directories explicitly:
+
+```bash
+JDK21_HOME=/path/to/jdk-21 JDK25_HOME=/path/to/jdk-25 make pinning-compare
+```
+
+It compiles once with `--release 21`, runs the identical bytecode on both runtimes, and
+writes both JFR recordings and extracted events under `target/`. Its independent
+monitors isolate carrier pinning from ordinary application lock contention.
+
+Exercise 4 then uses a behavioral test and an optional recording of the real cache:
 
 ```bash
 make exercise4
