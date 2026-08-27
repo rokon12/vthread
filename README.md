@@ -54,20 +54,28 @@ make exercise4
 make exercise5
 ```
 
-Run every application scenario and observe the current behavior:
+Start the Spring Boot application:
 
 ```bash
 make run
 ```
 
-Run the scenario for one exercise before and after your change:
+Then load a cart from another terminal:
 
 ```bash
-make run ARGS=exercise3
+curl -H 'X-User-Id: user-7' -H 'X-Trace-Id: trace-123' \
+  'http://localhost:8080/api/carts/sku-42?quantity=2'
 ```
 
-The runner reports behavior rather than asserting it, so it works in both the broken
-starter and your migrated implementation.
+The endpoint uses the current `CartAggregationService` implementation to call pricing,
+inventory, and shipping and returns the resulting cart as JSON.
+
+Build and run the executable Spring Boot JAR:
+
+```bash
+mvn -q -DskipTests package
+java --enable-preview -jar target/vithread-workshop-1.0-SNAPSHOT.jar
+```
 
 Commit after each completed exercise. Earlier fixes remain in place while you move to
 the next exercise.

@@ -4,8 +4,7 @@ test:
 	mvn test
 
 run:
-	mvn -q -DskipTests package
-	java --enable-preview -jar target/vithread-workshop-1.0-SNAPSHOT.jar $(ARGS)
+	mvn -q -DskipTests spring-boot:run
 
 doctor:
 	./scripts/doctor.sh
