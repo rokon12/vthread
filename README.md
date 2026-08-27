@@ -47,6 +47,27 @@ Tests run: 20, Failures: 10, Errors: 0, Skipped: 0
 
 `mvn test` exits with a failure status at this point. That is intentional.
 
+### Switch Between Workshop JDKs
+
+Open a temporary shell configured for either installed JDK:
+
+```bash
+make jdk21
+make jdk25
+```
+
+Run `exit` to return to your previous shell. Make cannot change its parent terminal, so
+the selected environment lives in a subshell. For a single command, no interactive
+shell is needed:
+
+```bash
+make jdk21 CMD='java -version'
+make jdk25 CMD='mvn test'
+```
+
+The helpers use the same automatic discovery as `make pinning-compare`. If needed, set
+`JDK21_HOME` or `JDK25_HOME` to an installation directory.
+
 ## Run The Spring Boot Application
 
 Start the service:
@@ -136,6 +157,7 @@ Exercise 5 is optional/take-home and sits outside the two-hour core workshop.
 | Command | Purpose |
 | --- | --- |
 | `make doctor` | Verify Java, Maven, and Git, then compile the project. |
+| `make jdk21` / `make jdk25` | Open a temporary shell using the selected JDK. |
 | `make run` | Start the Spring Boot service on port 8080. |
 | `make exercise1` … `make exercise5` | Run one exercise’s focused tests. |
 | `make test` | Run the full suite. It becomes green after all exercises are complete. |

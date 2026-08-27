@@ -1,4 +1,4 @@
-.PHONY: test run doctor pinning-compare exercise4-demo pinning-jfr \
+.PHONY: test run doctor jdk21 jdk25 pinning-compare exercise4-demo pinning-jfr \
 	exercise1 exercise2 exercise3 exercise4 exercise5
 
 test:
@@ -9,6 +9,12 @@ run:
 
 doctor:
 	./scripts/doctor.sh
+
+jdk21:
+	./scripts/with-jdk.sh 21 $(CMD)
+
+jdk25:
+	./scripts/with-jdk.sh 25 $(CMD)
 
 pinning-compare:
 	./scripts/compare-pinning.sh
