@@ -12,10 +12,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ChildTaskContextTest {
-    @AfterEach
-    void cleanup() {
-        RequestContextHolder.clear();
-    }
 
     @Test
     void childTasksShouldObserveTheBoundRequestContext() {

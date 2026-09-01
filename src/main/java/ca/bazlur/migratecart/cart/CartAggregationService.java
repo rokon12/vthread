@@ -3,8 +3,11 @@ package ca.bazlur.migratecart.cart;
 import ca.bazlur.migratecart.inventory.InventoryClient;
 import ca.bazlur.migratecart.pricing.PricingClient;
 import ca.bazlur.migratecart.shipping.ShippingClient;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.StructuredTaskScope;
 
 public class CartAggregationService {
     private final Executor executor;
@@ -24,22 +27,26 @@ public class CartAggregationService {
     }
 
     public CartView loadCart(String userId, String traceId, String sku, int quantity) {
-        CompletableFuture<String> priceFuture = CompletableFuture.supplyAsync(
-                () -> pricingClient.fetchPrice(sku), executor);
-        CompletableFuture<String> inventoryFuture = CompletableFuture.supplyAsync(
-                () -> inventoryClient.checkAvailability(sku, quantity), executor);
-        CompletableFuture<String> shippingFuture = CompletableFuture.supplyAsync(
-                () -> shippingClient.estimate(sku, quantity), executor);
+        try (var scope = StructuredTaskScope.open()) {
+            var priceTask = scope.fork(() -> pricingClient.fetchPrice(sku));
+            var availabilityTask = scope.fork(() -> inventoryClient.checkAvailability(sku, quantity));
+            var estimate = scope.fork(() -> shippingClient.estimate(sku, quantity));
 
-        CompletableFuture.allOf(priceFuture, inventoryFuture, shippingFuture).join();
+            scope.join();
 
-        return new CartView(
-                userId,
-                traceId,
-                sku,
-                quantity,
-                priceFuture.join(),
-                inventoryFuture.join(),
-                shippingFuture.join());
+            return new CartView(
+                    userId,
+                    traceId,
+                    sku,
+                    quantity,
+                    priceTask.get(),
+                    availabilityTask.get(),
+                    estimate.get());
+        }  catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (RuntimeException e) {
+            throw new CompletionException(e);
+        }
     }
 }

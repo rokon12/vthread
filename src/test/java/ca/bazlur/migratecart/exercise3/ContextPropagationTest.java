@@ -11,10 +11,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ContextPropagationTest {
-    @AfterEach
-    void cleanup() {
-        RequestContextHolder.clear();
-    }
+
 
     @Test
     void requestContextShouldBeClearedAfterTheRequestCompletes() {

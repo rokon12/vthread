@@ -5,9 +5,11 @@ import ca.bazlur.migratecart.context.RequestContextHolder;
 import ca.bazlur.migratecart.observability.AuditTrail;
 import ca.bazlur.migratecart.observability.TraceReporter;
 import ca.bazlur.migratecart.pricing.PricingClient;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.StructuredTaskScope;
 
 public class CartFacade {
     private final ExecutorService executor;
@@ -21,34 +23,42 @@ public class CartFacade {
     }
 
     public CartView handleRequest(String userId, String traceId, String sku, int quantity) {
-        RequestContextHolder.set(new RequestContext(userId, traceId));
 
-        try {
-            Future<String> price = executor.submit(() -> pricingClient.fetchPrice(sku));
-            Future<String> auditedUserId = executor.submit(this::auditCartAccess);
-            Future<String> reportedTraceId = executor.submit(this::reportCartSpan);
+        return ScopedValue.where(RequestContextHolder.CURRENT_REQUEST, new RequestContext(userId, traceId))
+                .call(() -> buildCartView(sku, quantity));
+    }
+
+    private CartView buildCartView(String sku, int quantity) {
+        try (var scope = StructuredTaskScope.<String, Void>open(
+                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(),
+                config -> config.withName("request-context").withThreadFactory(Thread.ofVirtual().factory()))) {
+            String price = pricingClient.fetchPrice(sku);
+            var userIdTask = scope.fork(this::auditCartAccess);
+            var traceIdTask = scope.fork(this::reportCartSpan);
+
+            scope.join();
+
             return new CartView(
-                    auditedUserId.get(),
-                    reportedTraceId.get(),
+                    userIdTask.get(),
+                    traceIdTask.get(),
                     sku,
                     quantity,
-                    price.get(),
+                    price,
                     "in-stock",
                     "tomorrow");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
-        } catch (ExecutionException e) {
-            throw new IllegalStateException(e.getCause());
         }
     }
+
 
     public RequestContext currentContext() {
         return RequestContextHolder.get();
     }
 
     private String auditCartAccess() {
-        RequestContext context = RequestContextHolder.get();
+        RequestContext context = RequestContextHolder.currentOrNull();
         if (context == null) {
             return "<missing>";
         }
@@ -57,7 +67,7 @@ public class CartFacade {
     }
 
     private String reportCartSpan() {
-        RequestContext context = RequestContextHolder.get();
+        RequestContext context = RequestContextHolder.currentOrNull();
         if (context == null) {
             return "<missing>";
         }
