@@ -40,7 +40,7 @@ echo "recording JFR to $recording_path"
 set +e
 (
     cd "$project_dir" &&
-    mvn -q -Dtest=PinningDetectionTest "-Dsurefire.extraArgLine=-XX:StartFlightRecording=filename=$recording_path,settings=profile,dumponexit=true" test
+    mvn -q -Dtest=PinningDetectionTest "-Dsurefire.extraArgLine=-XX:StartFlightRecording=filename=$recording_path,settings=profile,dumponexit=true,jdk.JavaMonitorEnter#enabled=true,jdk.JavaMonitorEnter#threshold=0ms" test
 )
 test_status=$?
 set -e
@@ -59,14 +59,35 @@ if [ ! -f "$recording_path" ]; then
 fi
 
 if command -v jfr >/dev/null 2>&1; then
-    jfr print --events jdk.VirtualThreadPinned "$recording_path" > "$events_path" 2>/dev/null || true
-    if [ -s "$events_path" ]; then
-        echo "jdk.VirtualThreadPinned events:"
-        cat "$events_path"
+    raw_events=$events_path.raw
+    jfr print --events jdk.VirtualThreadPinned,jdk.JavaMonitorEnter \
+        "$recording_path" > "$raw_events" 2>/dev/null || true
+
+    # Keep pinning events, and only monitor events raised by application code.
+    # JFR's own recorder and the class loader contend on monitors too; that is not the bug.
+    awk -v RS='' -v ORS='\n\n' \
+        '/^jdk\.VirtualThreadPinned/ || /ca\.bazlur\.migratecart/' \
+        "$raw_events" > "$events_path"
+    rm -f "$raw_events"
+
+    pinned_count=$(awk '/^jdk\.VirtualThreadPinned \{/ {count++} END {print count + 0}' "$events_path")
+    monitor_count=$(awk '/^jdk\.JavaMonitorEnter \{/ {count++} END {print count + 0}' "$events_path")
+
+    printf 'jdk.VirtualThreadPinned events:            %s\n' "$pinned_count"
+    printf 'jdk.JavaMonitorEnter events (application): %s\n' "$monitor_count"
+
+    if [ "$pinned_count" -gt 0 ]; then
+        echo "Carrier pinning recorded: this runtime keeps the virtual thread mounted while it blocks under a monitor."
+    elif [ "$monitor_count" -gt 0 ]; then
+        echo "No carrier pinning, but application callers still queued on a monitor."
     else
-        echo "No jdk.VirtualThreadPinned events printed by this JDK."
-        echo "Recording kept at $recording_path for inspection in JDK Mission Control."
+        echo "No pinning events, and this runtime does not emit jdk.JavaMonitorEnter for virtual threads."
+        echo "The serialization is still real. Use the elapsed time from 'make exercise4' and the"
+        echo "JDK 21 side of 'make pinning-compare' as the evidence."
     fi
+
+    echo "Extracted events: $events_path"
+    echo "Recording kept at $recording_path for inspection in JDK Mission Control."
 else
     echo "The jfr tool is not on PATH. Open $recording_path in JDK Mission Control."
 fi

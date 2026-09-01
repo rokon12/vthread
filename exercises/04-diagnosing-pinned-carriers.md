@@ -24,7 +24,11 @@ installation directories:
 ```bash
 JDK21_HOME=/path/to/jdk-21 JDK25_HOME=/path/to/jdk-25 make pinning-compare
 ```
+e.g.
 
+```bash
+  JDK21_HOME=~/.sdkman/candidates/java/21.0.8-tem JDK25_HOME=~/.sdkman/candidates/java/25-tem make pinning-compare                                                                   
+```
 It compiles one Java 21 class and runs the identical bytecode on both runtimes. Each
 virtual thread uses a different monitor, so the JDK 21 slowdown and JFR events isolate
 carrier pinning rather than ordinary lock contention. JDK 25 should show no
@@ -39,11 +43,21 @@ section still serializes unrelated keys on JDK 25.
 make exercise4
 ```
 
-For JFR evidence from the starter implementation, run:
+To record the starter implementation, run:
 
 ```bash
 make pinning-jfr
 ```
+
+On Java 25 this prints zero events for both `jdk.VirtualThreadPinned` and
+`jdk.JavaMonitorEnter`. That is the expected result, not a broken setup. JEP 491 removed
+monitor-related carrier pinning, and this runtime does not emit monitor-enter events for
+virtual threads at all, so JFR cannot see the contention here.
+
+The serialization is still real. Your evidence is the elapsed time reported by
+`make exercise4` and the JDK 21 side of `make pinning-compare`, where the identical
+bytecode records pinning events and runs roughly eight times slower. Note what this
+means in production: an empty pinning report does not prove a hot path is concurrent.
 
 Expected failure:
 

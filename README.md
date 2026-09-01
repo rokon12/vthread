@@ -197,9 +197,15 @@ target/pinning.jfr
 target/pinning-events.txt
 ```
 
-On Java 25, `jdk.VirtualThreadPinned` events may be absent because monitor-related
-carrier pinning was removed by JEP 491. The broken implementation still serializes
-callers, so use the timing result and JFR output together.
+On Java 25 the extracted events file is empty. JEP 491 removed monitor-related carrier
+pinning, so `jdk.VirtualThreadPinned` reports nothing, and this runtime does not emit
+`jdk.JavaMonitorEnter` for virtual threads either. Both counts are zero by design, not
+because the setup is wrong.
+
+The broken implementation still serializes callers. The evidence on Java 25 is the
+elapsed time from `make exercise4` together with the JDK 21 side of `make
+pinning-compare`, where the identical bytecode records pinning events and runs roughly
+eight times slower.
 
 ## Build An Executable JAR
 

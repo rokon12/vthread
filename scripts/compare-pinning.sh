@@ -3,7 +3,7 @@ set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 classes_dir=$repo_root/target/pinning-demo/classes
-source_file=$repo_root/demo/pinning/PinningDemo.java
+source_file=$repo_root/src/main/java/demo/pinning/PinningDemo.java
 . "$repo_root/scripts/jdk-utils.sh"
 
 run_demo() {
@@ -25,7 +25,7 @@ run_demo() {
         -Djdk.virtualThreadScheduler.maxPoolSize=1 \
         "-XX:StartFlightRecording=filename=$recording,settings=profile,dumponexit=true" \
         -cp "$classes_dir" \
-        PinningDemo > "$output" 2>&1
+        demo.pinning.PinningDemo > "$output" 2>&1
 
     cat "$output"
     "$jdk_home/bin/jfr" print --events jdk.VirtualThreadPinned "$recording" \
