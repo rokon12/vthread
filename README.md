@@ -27,8 +27,8 @@ exercises—the structured concurrency preview API differs from the JDK 21 API.
 Clone the repository, verify the toolchain, and create a branch for your work:
 
 ```bash
-git clone https://github.com/rokon12/vithread-workshop-participant.git
-cd vithread-workshop-participant
+git clone https://github.com/rokon12/vthread.git
+cd vthread
 make doctor
 git switch -c my-migration
 ```
